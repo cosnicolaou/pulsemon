@@ -22,3 +22,24 @@ cmds that I've built over the past few years.
 
 * cmap: a simple concurrent mapper.
 
+```go
+	sleeper := func(v interface{}) interface{} {
+		n := v.(int)
+		time.Sleep(time.Millisecond * 200)
+		return -n
+	}
+	input := make(cmap.Vector, 1000)
+	for i := range input {
+		input[i] = i
+	}
+	then := time.Now()
+	output := cmap.Map(input, sleeper, 100)
+	taken := time.Now().Sub(then)
+	if taken < 10*time.Second {
+		fmt.Printf("nice and fast!\n")
+	}
+	fmt.Printf("len: %v\n", len(output))
+	// Output: nice and fast!
+	// len: 1000
+```
+
