@@ -18,7 +18,7 @@ cmds that I've built over the past few years.
 
 ## pulsemon - pulse counting for a water meter
 
-pulsemon implements a simple water meter monitor using the piface board and
+* pulsemon implements a simple water meter monitor using the piface board and
 a water meter with a reed switch built in. It supports alerting, logging
 of timestamps and is easily dockerized. It's also a decent example of how
 simple it is to use go concurrency for monitoring applications and avoids
