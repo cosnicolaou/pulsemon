@@ -4,6 +4,7 @@ package main
 
 import (
 	"flag"
+	"time"
 
 	"github.com/cosnicolaou/go/cmd/pulsemon/internal"
 )
@@ -18,7 +19,10 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if err := internal.ReadTimestamps(timestampFileFlag); err != nil {
+	ts, err := internal.NewTimestampFileWriter(timestampFileFlag)
+	if err != nil {
 		panic(err)
 	}
+	ts.Append(time.Now())
+	defer ts.Close()
 }
