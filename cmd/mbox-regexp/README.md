@@ -6,8 +6,9 @@ against an mboxrd format mailbox file, such as those produced by gmail exports.e
 
 The invocation below will print out all of the URL's in the email messages.
 
-./mbox-regexp --pattern='(?U)<https://(?P<url>.*)>' --template='$rul' Takeout/your-mbox-file
-
+```
+./mbox-regexp --pattern='(?U)<https://(?P<url>.*)>' --template='$url' Takeout/your-mbox-file
+```
 
 mbox-regexp correctly handles multi-part mime format emails and applies the regexp against
 parts that are in quotedprintable encoding.
