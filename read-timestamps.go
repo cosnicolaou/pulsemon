@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosnicolaou/go/cmd/pulsemon/internal"
+	"github.com/cosnicolaou/pulsemon/internal"
 )
 
 var (

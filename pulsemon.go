@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cosnicolaou/go/cmd/pulsemon/internal"
+	"github.com/cosnicolaou/pulsemon/internal"
 	"github.com/luismesas/goPi/piface"
 	"github.com/luismesas/goPi/spi"
 )
