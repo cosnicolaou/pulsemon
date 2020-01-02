@@ -88,7 +88,7 @@ func main() {
 		int64(globalConfig.GallonsPerPulse),
 		smtpClient)
 
-	go idle(globalConfig.IdleAlertDuration, smtpClient)
+	go idleAndLeak(globalConfig.IdleAlertDuration, globalConfig.LeakAlertDuration, smtpClient)
 
 	// Poll for pulses.
 	go poll(pfd, pulseMeterPin, pollingInterval, debounceDuration, pulseTimes)
@@ -173,17 +173,29 @@ func alert(interval time.Duration, pulses int64, gallonsPerPulse int64, smtp *in
 	}
 }
 
-func idle(interval time.Duration, smtp *internal.SMTPClient) {
+func idleAndLeak(idleInterval, leakInterval time.Duration, smtp *internal.SMTPClient) {
 	last := atomic.LoadInt64(&pulseCounter)
+	leakStart := time.Now()
+	idle := false
 	for {
-		time.Sleep(interval)
+		time.Sleep(idleInterval)
 		cur := atomic.LoadInt64(&pulseCounter)
 		if seen := cur - last; seen == 0 {
-			msg := fmt.Sprintf("ALERT: no water flow for %v: %v\n", interval, time.Now())
+			msg := fmt.Sprintf("ALERT: no water flow for %v: %v\n", idleInterval, time.Now())
 			os.Stdout.WriteString(msg)
 			smtp.Alert(msg)
+			idle = true
 		}
 		last = cur
+		if time.Now().After(leakStart.Add(leakInterval)) {
+			if !idle {
+				msg := fmt.Sprintf("ALERT: POSSIBLE LEAK: no idle period for %v: %v\n", leakInterval, time.Now())
+				os.Stdout.WriteString(msg)
+				smtp.Alert(msg)
+			}
+			leakStart = time.Now()
+			idle = false
+		}
 	}
 }
 
@@ -265,8 +277,13 @@ func daily(hhmm time.Time, gallonsPerPulse int64, smtp *internal.SMTPClient) {
 		// send email
 		cur := atomic.LoadInt64(&pulseCounter)
 		seen := cur - prev
-		msg := fmt.Sprintf("DAILY USAGE: %v gallons over %v: %v\n", seen*gallonsPerPulse, duration, time.Now())
-		smtp.Status(msg)
+		gallons := seen * gallonsPerPulse
+		msg := fmt.Sprintf("DAILY USAGE: %v gallons over %v @ %v\n",
+			gallons,
+			duration.Round(time.Minute),
+			time.Now().Format(time.RFC822),
+		)
+		smtp.Status(fmt.Sprintf(" %v gallons", gallons), msg)
 		prev = cur
 	}
 }

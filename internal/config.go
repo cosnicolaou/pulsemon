@@ -30,12 +30,13 @@ type Configuration struct {
 
 	// Set the time of day to send a status email at in HH:MM format.
 	StatusEmailTime    string `json:"status_email_time"`
-	StatisEmailSubject string `json:"status_email_subject"`
+	StatusEmailSubject string `json:"status_email_subject"`
 
 	// Alert configuation, if more than AlertPulses are counted
 	// over AlertInterval then an email is sent.
 	AlertInterval     string `json:"alert_interval"`
 	IdleAlertInterval string `json:"idle_alert_interval"`
+	LeakAlertInterval string `json:"leak_alert_interval"`
 	AlertPulses       int64  `json:"alert_pulses"`
 
 	// Number of gallons per pulse.
@@ -52,6 +53,9 @@ type Configuration struct {
 
 	// IdleAlertInterval as a time.Duration
 	IdleAlertDuration time.Duration
+
+	// LeakAlertInterval as a time.Duration
+	LeakAlertDuration time.Duration
 
 	// StatusEmailTime as a time.Time.
 	StatusTime time.Time
@@ -87,6 +91,11 @@ func ReadConfig(filename string, config *Configuration) error {
 		return fmt.Errorf("failed to parse idle_alert_interval %v as time.Duration: %v", config.IdleAlertInterval, err)
 	}
 
+	leak, err := time.ParseDuration(config.LeakAlertInterval)
+	if err != nil {
+		return fmt.Errorf("failed to parse leak_alert_interval %v as time.Duration: %v", config.LeakAlertInterval, err)
+	}
+
 	emailAt, err := time.Parse("15:04", config.StatusEmailTime)
 	if err != nil {
 		return fmt.Errorf("failed to parse %v in 15:04 format", config.StatusEmailTime)
@@ -95,6 +104,7 @@ func ReadConfig(filename string, config *Configuration) error {
 	config.StatusTime = emailAt
 	config.AlertDuration = interval
 	config.IdleAlertDuration = idle
+	config.LeakAlertDuration = leak
 	return nil
 }
 
@@ -117,13 +127,13 @@ func (config *Configuration) ConfigureEmail(sendHello bool) (*SMTPClient, error)
 		to:            config.To,
 		from:          config.From,
 		alertSubject:  config.Subject,
-		statusSubject: config.StatisEmailSubject,
+		statusSubject: config.StatusEmailSubject,
 	}
 	if len(client.host) == 0 {
 		return nil, nil
 	}
 	client.auth = smtp.PlainAuth("", config.User, config.Passwd, config.Server)
-	err := client.Status(fmt.Sprintf("%v started on %v @ %v\n", os.Args[0], hostname, time.Now()))
+	err := client.Status("", fmt.Sprintf("%v started on %v @ %v\n", os.Args[0], hostname, time.Now()))
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +147,8 @@ func (sc *SMTPClient) Alert(body string) error {
 }
 
 // Status sends a status email.
-func (sc *SMTPClient) Status(body string) error {
-	return sc.Send(sc.statusSubject, body)
+func (sc *SMTPClient) Status(trailer, body string) error {
+	return sc.Send(sc.statusSubject+trailer, body)
 }
 
 // Send sends a generic email.
@@ -150,7 +160,7 @@ func (sc *SMTPClient) Send(subject, body string) error {
 		sc.to, subject, body, hostname)
 	err := smtp.SendMail(sc.host, sc.auth, sc.from, sc.to, []byte(msg))
 	if err != nil {
-		err = fmt.Errorf("smtp.SendMail failed: %v, from: %v, to: %v", sc.host, sc.from, sc.to, err)
+		err = fmt.Errorf("smtp.SendMail failed: %v, from: %v, to: %v: %v", sc.host, sc.from, sc.to, err)
 	}
 	return err
 }
