@@ -24,10 +24,10 @@ type dumpFlags struct {
 
 type usageFlags struct {
 	CommonFlags
-	StartDate       string `subcmd:"start,,start of time period in MM-DD-YY format"`
-	EndDate         string `subcmd:"end,,end of time period in MM-DD-YY format"`
-	GallonsPerPulse int    `subcmd:"gallons-per-pulse,10,number of gallons per relay/meter pulse"`
-	Period          string `subcmd:"period,24h,time period for usage calculations"`
+	StartDate     string `subcmd:"start,,start of time period in MM-DD-YY format"`
+	EndDate       string `subcmd:"end,,end of time period in MM-DD-YY format"`
+	UnitsPerPulse int    `subcmd:"units-per-pulse,10,number of units per relay/meter pulse"`
+	Period        string `subcmd:"period,24h,time period for usage calculations"`
 }
 
 var cmdSet *subcmd.CommandSet
@@ -125,7 +125,7 @@ func usageCalculation(ctx context.Context, values interface{}, args []string) er
 		nextPeriodEnd time.Time
 	)
 
-	fmt.Printf("date\tpulses\tgallons\ttotal-pulses\ttotal-gallons\n")
+	fmt.Printf("date\tpulses\nunits\ttotal-pulses\ttotal-units\n")
 	sc := internal.NewTimestampFileScanner(ts)
 	for sc.Scan() {
 		ns := sc.Time()
@@ -138,8 +138,8 @@ func usageCalculation(ctx context.Context, values interface{}, args []string) er
 		pulses++
 		totalPulses++
 		if ns.After(nextPeriodEnd) {
-			fmt.Printf("%v\t%v\t%v\t%v\t%v\n", nextPeriodEnd.Format("01/02/06:15:04"), pulses, pulses*cl.GallonsPerPulse,
-				totalPulses, totalPulses*cl.GallonsPerPulse)
+			fmt.Printf("%v\t%v\t%v\t%v\t%v\n", nextPeriodEnd.Format("01/02/06:15:04"), pulses, pulses*cl.UnitsPerPulse,
+				totalPulses, totalPulses*cl.UnitsPerPulse)
 			nextPeriodEnd = nextPeriodEnd.Add(period)
 			pulses = 0
 		}
@@ -149,31 +149,3 @@ func usageCalculation(ctx context.Context, values interface{}, args []string) er
 	}
 	return nil
 }
-
-/*
-// ReadTimestamps read and print the timestamps.
-func ReadTimestamps(filename string, from, to time.Time) error {
-	var rd *os.File
-	var err error
-	if filename == "-" {
-		rd = os.Stdin
-	} else {
-		rd, err = os.Open(filename)
-		if err != nil {
-			return err
-		}
-	}
-	defer rd.Close()
-	pulseCounter := 0
-	fmt.Printf("pulse\tnanosecond\ttime\n")
-	sc := NewTimestampFileScanner(rd)
-	for sc.Scan() {
-		pulseCounter++
-		ns := sc.Time()
-		if from.After(ns) || to.Before(ns) {
-			continue
-		}
-		fmt.Printf("%v\t%v\t%v\n", pulseCounter, ns.UnixNano(), ns)
-	}
-	return sc.Err()
-}*/
