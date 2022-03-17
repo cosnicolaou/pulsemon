@@ -1,0 +1,7 @@
+cloudeng.io/cmdutil v0.0.0-20211030170600-4673ec424491 h1:MPEUzxIQi0LilnIQkw45nwetSrETfqHmveTAQjTjFxg=
+cloudeng.io/cmdutil v0.0.0-20211030170600-4673ec424491/go.mod h1:IhKUoqa/qGetsSuZdUULdh5ACLrxG1cHjvc+yk0GvB4=
+cloudeng.io/errors v0.0.7/go.mod h1:xWamLL6tn3roKI6MRRFkw1jUkJL9s7CJzFYfaxuhHZk=
+cloudeng.io/text v0.0.9 h1:/2W1L7IsOYbeyHpACriekh0NXCSuFdx+I/eTIml26lI=
+cloudeng.io/text v0.0.9/go.mod h1:nGTZ1g2Wq0fhlGWX5BKPAsChSYeB/MHu1dLI1Kk9004=
+github.com/luismesas/goPi v1.0.3-0.20140419091954-abc9b85cfb5f h1:yYaXPg2Wx76Kw8JP/9HmIBqDmdveRd7z0crxC5Gz/xM=
+github.com/luismesas/goPi v1.0.3-0.20140419091954-abc9b85cfb5f/go.mod h1:uKBSNIiXHmmA1vNzKnlDt79VzpGygJ3XMWwhPuWH/F8=

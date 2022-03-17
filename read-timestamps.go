@@ -125,7 +125,7 @@ func usageCalculation(ctx context.Context, values interface{}, args []string) er
 		nextPeriodEnd time.Time
 	)
 
-	fmt.Printf("date\tpulses\nunits\ttotal-pulses\ttotal-units\n")
+	fmt.Printf("date\tpulses\nunits\ttotal-pulses\ttotal-units\ncumulative-units")
 	sc := internal.NewTimestampFileScanner(ts)
 	for sc.Scan() {
 		ns := sc.Time()
