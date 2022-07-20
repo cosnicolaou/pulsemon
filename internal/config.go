@@ -1,14 +1,16 @@
 package internal
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"net/smtp"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	mail "github.com/xhit/go-simple-mail/v2"
 )
 
 var hostname string
@@ -22,8 +24,7 @@ type Configuration struct {
 	// SMTP configuration for alert emails.
 	Server  string   `json:"smtp_server"`
 	Port    string   `json:"smtp_port"`
-	User    string   `json:"smtp_user"`
-	Passwd  string   `json:"smtp_password"`
+	Domain  string   `json:"smtp_domain"`
 	To      []string `json:"smtp_to"`
 	From    string   `json:"smtp_from"`
 	Subject string   `json:"smtp_subject"`
@@ -109,9 +110,9 @@ func ReadConfig(filename string, config *Configuration) error {
 }
 
 type SMTPClient struct {
-	auth                        smtp.Auth
 	to                          []string
-	host, from                  string
+	host, domain, from          string
+	port                        int
 	alertSubject, statusSubject string
 }
 
@@ -123,17 +124,22 @@ func (sc *SMTPClient) String() string {
 // a 'hello' message.
 func (config *Configuration) ConfigureEmail(sendHello bool) (*SMTPClient, error) {
 	client := &SMTPClient{
-		host:          net.JoinHostPort(config.Server, config.Port),
+		host:          config.Server,
 		to:            config.To,
 		from:          config.From,
+		domain:        config.Domain,
 		alertSubject:  config.Subject,
 		statusSubject: config.StatusEmailSubject,
 	}
 	if len(client.host) == 0 {
 		return nil, nil
 	}
-	client.auth = smtp.PlainAuth("", config.User, config.Passwd, config.Server)
-	err := client.Status("", fmt.Sprintf("%v started on %v @ %v\n", os.Args[0], hostname, time.Now()))
+	port, err := strconv.Atoi(config.Port)
+	if err != nil {
+		return nil, err
+	}
+	client.port = port
+	err = client.Status("", fmt.Sprintf("%v started on %v @ %v\n", os.Args[0], hostname, time.Now()))
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +159,41 @@ func (sc *SMTPClient) Status(trailer, body string) error {
 
 // Send sends a generic email.
 func (sc *SMTPClient) Send(subject, body string) error {
-	if sc == nil || sc.auth == nil {
+	if sc == nil {
 		return nil
 	}
 	msg := fmt.Sprintf("To: %v\r\nSubject: %v\r\n\r\n%v\r\nHost: %v\r\n",
 		sc.to, subject, body, hostname)
-	err := smtp.SendMail(sc.host, sc.auth, sc.from, sc.to, []byte(msg))
+
+	server := mail.NewSMTPClient()
+
+	// SMTP Server
+	server.Host = sc.host
+	server.Port = sc.port
+	server.Helo = sc.domain
+	server.Encryption = mail.EncryptionSTARTTLS
+	server.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+
+	// generate message ID
+	now := time.Now()
+	msgID := fmt.Sprintf("<%v.%v@cloudeng.io",
+		now.UTC().Unix(),
+		now.UTC().UnixMilli())
+
+	smtpClient, err := server.Connect()
+
 	if err != nil {
+		return err
+	}
+
+	email := mail.NewMSG()
+	email.SetFrom(sc.from).
+		SetSubject(subject).
+		AddTo(sc.to[0]).
+		AddHeader("Message-ID", msgID).
+		SetBody(mail.TextPlain, msg)
+
+	if err := email.Send(smtpClient); err != nil {
 		err = fmt.Errorf("smtp.SendMail failed: %v, from: %v, to: %v: %v", sc.host, sc.from, sc.to, err)
 	}
 	return err
