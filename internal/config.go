@@ -29,9 +29,12 @@ type Configuration struct {
 	From    string   `json:"smtp_from"`
 	Subject string   `json:"smtp_subject"`
 
-	// Set the time of day to send a status email at in HH:MM format.
+	// Set the time of day to send a status email at in HH:MM [+|-]0700 format.
 	StatusEmailTime    string `json:"status_email_time"`
 	StatusEmailSubject string `json:"status_email_subject"`
+
+	// DST offset for the required timezone as a string in time.Duration format.
+	DSTAdjustment string `json:"daylight_savings_adjustment"`
 
 	// Alert configuation, if more than AlertPulses are counted
 	// over AlertInterval then an email is sent.
@@ -60,6 +63,8 @@ type Configuration struct {
 
 	// StatusEmailTime as a time.Time.
 	StatusTime time.Time
+	// DSTAdjustment as a time.Duration.
+	DSTAdjustmentDuration time.Duration
 
 	PollingInterval int `json:"polling_interval_ms"`
 
@@ -82,24 +87,32 @@ func ReadConfig(filename string, config *Configuration) error {
 	if err := json.Unmarshal(buf, config); err != nil {
 		return fmt.Errorf("failed to unmarshal %v: %v", filename, err)
 	}
+
 	interval, err := time.ParseDuration(config.AlertInterval)
 	if err != nil {
-		return fmt.Errorf("failed to parse alert_interval %v as time.Duration: %v", config.AlertInterval, err)
+		return fmt.Errorf("failed to parse alert_interval %q as time.Duration: %v", config.AlertInterval, err)
 	}
 
 	idle, err := time.ParseDuration(config.IdleAlertInterval)
 	if err != nil {
-		return fmt.Errorf("failed to parse idle_alert_interval %v as time.Duration: %v", config.IdleAlertInterval, err)
+		return fmt.Errorf("failed to parse idle_alert_interval %q as time.Duration: %v", config.IdleAlertInterval, err)
 	}
 
 	leak, err := time.ParseDuration(config.LeakAlertInterval)
 	if err != nil {
-		return fmt.Errorf("failed to parse leak_alert_interval %v as time.Duration: %v", config.LeakAlertInterval, err)
+		return fmt.Errorf("failed to parse leak_alert_interval %q as time.Duration: %v", config.LeakAlertInterval, err)
 	}
 
-	emailAt, err := time.Parse("15:04", config.StatusEmailTime)
+	emailAt, err := time.Parse("15:04 -0700", config.StatusEmailTime)
 	if err != nil {
-		return fmt.Errorf("failed to parse %v in 15:04 format", config.StatusEmailTime)
+		return fmt.Errorf("failed to parse %q in 15:04 -0700 format", config.StatusEmailTime)
+	}
+	config.DSTAdjustmentDuration, err = time.ParseDuration(config.DSTAdjustment)
+	if err != nil {
+		return fmt.Errorf("failed to parse %q as a time.Duration", config.DSTAdjustment)
+	}
+	if time.Now().IsDST() {
+		emailAt.Add(config.DSTAdjustmentDuration)
 	}
 
 	config.StatusTime = emailAt
@@ -194,7 +207,7 @@ func (sc *SMTPClient) Send(subject, body string) error {
 		SetBody(mail.TextPlain, msg)
 
 	if err := email.Send(smtpClient); err != nil {
-		err = fmt.Errorf("smtp.SendMail failed: %v, from: %v, to: %v: %v", sc.host, sc.from, sc.to, err)
+		return fmt.Errorf("smtp.SendMail failed: %v, from: %v, to: %v: %v", sc.host, sc.from, sc.to, err)
 	}
 	return err
 }

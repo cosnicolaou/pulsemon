@@ -22,18 +22,14 @@ var (
 	// to any other interested process
 	pulseTimes chan time.Time
 
-	hostname string
-
-	configFileFlag    string
-	verboseFlag       bool
-	timestampFileFlag string
-	globalConfig      internal.Configuration
+	configFileFlag string
+	verboseFlag    bool
+	globalConfig   internal.Configuration
 )
 
 func init() {
 	flag.StringVar(&configFileFlag, "config", "", "configuration file in JSON format")
 	flag.BoolVar(&verboseFlag, "verbose", false, "output debug/trace information to the console")
-	hostname, _ = os.Hostname()
 }
 
 func main() {
@@ -65,7 +61,7 @@ func main() {
 	}
 
 	sigch := make(chan os.Signal, 1)
-	signal.Notify(sigch, os.Interrupt, os.Kill, syscall.SIGTERM)
+	signal.Notify(sigch, os.Interrupt, syscall.SIGTERM)
 
 	pulseTimes = make(chan time.Time, 1024)
 
@@ -115,7 +111,7 @@ func console(pfd *piface.PiFaceDigital,
 	pulseTimes <-chan time.Time) {
 	var prev, cur int64
 	storage := make([]byte, 0, 128)
-	buf := storage[:0]
+	var buf []byte
 	pfd.Leds[4].SetValue(0)
 	pfd.Leds[5].SetValue(0)
 	pfd.Leds[6].SetValue(0)
@@ -144,7 +140,9 @@ func console(pfd *piface.PiFaceDigital,
 					if err := timestampFile.Append(event); err != nil {
 						msg := fmt.Sprintf("ERROR appending to timestamp file: %v", err)
 						fmt.Fprintf(os.Stderr, "%s\n", msg)
-						smtp.Alert(msg)
+						if err := smtp.Alert(msg); err != nil {
+							fmt.Fprintf(os.Stderr, "ERROR sending email: %v", err)
+						}
 					}
 					n++
 				default:
@@ -167,7 +165,9 @@ func alert(interval time.Duration, pulses int64, gallonsPerPulse int64, smtp *in
 		if seen := cur - last; seen > pulses {
 			msg := fmt.Sprintf("ALERT: %v gallons over %v: %v\n", seen*gallonsPerPulse, interval, time.Now())
 			os.Stdout.WriteString(msg)
-			smtp.Alert(msg)
+			if err := smtp.Alert(msg); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR sending email: %v", err)
+			}
 		}
 		last = cur
 	}
@@ -183,7 +183,9 @@ func idleAndLeak(idleInterval, leakInterval time.Duration, smtp *internal.SMTPCl
 		if seen := cur - last; seen == 0 {
 			msg := fmt.Sprintf("ALERT: no water flow for %v: %v\n", idleInterval, time.Now())
 			os.Stdout.WriteString(msg)
-			smtp.Alert(msg)
+			if err := smtp.Alert(msg); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR sending email: %v", err)
+			}
 			idle = true
 		}
 		last = cur
@@ -191,7 +193,9 @@ func idleAndLeak(idleInterval, leakInterval time.Duration, smtp *internal.SMTPCl
 			if !idle {
 				msg := fmt.Sprintf("ALERT: POSSIBLE LEAK: no idle period for %v: %v\n", leakInterval, time.Now())
 				os.Stdout.WriteString(msg)
-				smtp.Alert(msg)
+				if err := smtp.Alert(msg); err != nil {
+					fmt.Fprintf(os.Stderr, "ERROR sending email: %v", err)
+				}
 			}
 			leakStart = time.Now()
 			idle = false
@@ -283,7 +287,9 @@ func daily(hhmm time.Time, gallonsPerPulse int64, smtp *internal.SMTPClient) {
 			duration.Round(time.Minute),
 			time.Now().Format(time.RFC822),
 		)
-		smtp.Status(fmt.Sprintf(" %v gallons", gallons), msg)
+		if err := smtp.Status(fmt.Sprintf(" %v gallons", gallons), msg); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR sending email: %v", err)
+		}
 		prev = cur
 	}
 }
