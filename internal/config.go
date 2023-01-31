@@ -151,8 +151,9 @@ func (config *Configuration) ConfigureEmail(sendHello bool) (*SMTPClient, error)
 	if err != nil {
 		return nil, err
 	}
+	dailyIn := UntilHHMM(config.StatusTime)
 	client.port = port
-	err = client.Status("", fmt.Sprintf("%v started on %v @ %v\n", os.Args[0], hostname, time.Now()))
+	err = client.Status("", fmt.Sprintf("%v started on %v @ %v (next daily email for %v, %v UTC in %v)\n", os.Args[0], hostname, time.Now(), HHMM(config.StatusTime), HHMM(config.StatusTime.UTC()), dailyIn))
 	if err != nil {
 		return nil, err
 	}

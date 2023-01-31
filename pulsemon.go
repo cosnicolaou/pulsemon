@@ -204,7 +204,7 @@ func idleAndLeak(idleInterval, leakInterval time.Duration, smtp *internal.SMTPCl
 }
 
 func poll(pfd *piface.PiFaceDigital, pin int, interval, debounce time.Duration, pulseTimes chan<- time.Time) {
-	fmt.Printf("Polling pin %v, interval %v, debounce duration %v\n", pin, interval, debounce)
+	fmt.Printf("polling pin %v, interval %v, debounce duration %v\n", pin, interval, debounce)
 	debounceCount := int(debounce / interval)
 	count := debounceCount
 	for {
@@ -232,7 +232,7 @@ func poll(pfd *piface.PiFaceDigital, pin int, interval, debounce time.Duration, 
 }
 
 func forwardRelay(pfd *piface.PiFaceDigital, interval time.Duration, relayPin int, relayHold time.Duration) {
-	fmt.Printf("Relay pin %v\n", relayPin)
+	fmt.Printf("relay pin %v\n", relayPin)
 	pfd.Relays[relayPin].AllOff()
 	last := atomic.LoadInt64(&pulseCounter)
 	for {
@@ -273,10 +273,17 @@ func forwardSwitch(pfd *piface.PiFaceDigital, interval time.Duration, outputPin 
 	}
 }
 
+var dstStr = map[bool]string{
+	true:  "Daylight Savings Time",
+	false: "Standard Time",
+}
+
 func daily(hhmm time.Time, gallonsPerPulse int64, smtp *internal.SMTPClient) {
 	prev := atomic.LoadInt64(&pulseCounter)
 	for {
 		duration := internal.UntilHHMM(hhmm)
+		dst := time.Now().IsDST()
+		fmt.Printf("next daily email at %v in %v (%v)\n", internal.HHMM(hhmm), duration, dstStr[dst])
 		<-time.After(duration)
 		// send email
 		cur := atomic.LoadInt64(&pulseCounter)
